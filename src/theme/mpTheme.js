@@ -776,7 +776,7 @@ const css = `
   /* Schedule cell picker: chips stack one per line and hug their content (not stretched to the field width) */
   .msf-tags.stack{ flex-direction:column; align-items:flex-start; overflow:visible; width:100%; }
   .msf-tags.stack .MuiChip-root{ width:auto; max-width:100%; }
-  .msf-tags.wrap, .ag-cell.month-cell .msf-tags.wrap{ flex:1 1 0; flex-wrap:wrap; gap:8px 4px; overflow:visible; justify-content:flex-start; align-items:flex-start; align-content:center; } /* Schedule cell: chips left-aligned, wrapping */
+  .msf-tags.wrap, .ag-cell.month-cell .msf-tags.wrap{ flex:1 1 0; flex-direction:column; flex-wrap:wrap; gap:8px 4px; overflow:visible; justify-content:flex-start; align-items:flex-start; align-content:flex-start; } /* Schedule cell: one chip per line, always flush left (the column no longer re-centres when the field is focused or blurred; the direction is set here because the launcher's generic .wrap class also matches) */
   .msf-tags.wrap .MuiChip-root{ justify-content:flex-start; padding-right:4px; }
   .msf-tags.wrap .multi-chip.MuiChip-root{ background:${t.tableChipBg} !important; } /* Schedule chips stay dark (grey/900) while the select is active; never truncated */
   .sched-grid .ag-cell.month-cell.cell-editing{ padding:0; }

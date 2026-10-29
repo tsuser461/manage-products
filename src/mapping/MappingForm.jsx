@@ -1,7 +1,7 @@
 import { Button } from "@mui/material";
 import { CreateFamilyDialog } from "../products/FamilyFields";
 import { FieldLabel, Section, useDb, useUi } from "../components/common";
-import { CATEGORY_BY_ACTIVITY_TYPE, ACTIVITY_TYPES, CODES_BY_TYPE, FIXED_FAMILY, MAPPING_TYPES, SYSTEM_CODES } from "../constants";
+import { CATEGORY_BY_ACTIVITY_TYPE, ACTIVITY_TYPES, CODES_BY_TYPE, FIXED_FAMILY, MAPPING_TYPES, SYSTEM_CODES, DEFAULT_CODE } from "../constants";
 import { PickerField, SelectField } from "../components/PickerField";
 import { useEffect, useState } from "react";
 import { RemovedSchedulePreview, UndoNote } from "../components/previews";
@@ -18,8 +18,7 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
   // EVAC, AL and AR are system Mappings: the form opens so they can be viewed, with every field and Update / Delete disabled.
   const readOnly = !!m && isSystem(m);
   const [type, setTypeRaw] = useState(m ? m.type : (prefill && prefill.type) || "");
-  // T/X has a single Code (Default), so its Code field stays empty and disabled and Default is implied.
-  const [code, setCodeRaw] = useState(m ? (m.type === "T/X" ? "" : m.code) : prefill && prefill.type === "O" ? "Default" : prefill && prefill.type === "X" ? "PREP" : "");
+  const [code, setCodeRaw] = useState(m ? m.code : (prefill && DEFAULT_CODE[prefill.type]) || ""); // the Type fills in its Code (T/X: Default, X: PREP)
   const [pt, setPt] = useState(m ? m.activityType || "" : "");
   const [category, setCategory] = useState(m ? [...(m.category || [])] : []);
   const [links, setLinks] = useState(() => {
@@ -56,8 +55,7 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
   // Which form this Mapping is: O · Default (Product Families per Category, scheduled), O · EVAC / AL / AR (system, Products per Category), T/X · Default (Product Families, scheduled) or X · PREP (one Product Family).
   const isDefaultO = type === "O" && code === "Default";
   const isSys = type === "O" && SYSTEM_CODES.includes(code);
-  const effCode = type === "T/X" ? "Default" : code; // the Code that is saved
-  const isTxDefault = type === "T/X";
+  const isTxDefault = type === "T/X" && code === "Default";
   const isPrep = type === "X" && code === "PREP";
   // One Mapping each for T/X Default, X · PREP, O · EVAC, O · AL and O · AR; O · Default can have many. A Code already mapped shows "Mapped" and is disabled.
   // EVAC, AL and AR are system Mappings, so users never create them.
@@ -75,8 +73,8 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
     dirty();
     setErrors({});
     setTypeRaw(v);
-    // Type O defaults its Code to Default; Type X has one Code, PREP, so it is filled in.
-    setCodeRaw(v === "O" ? "Default" : v === "X" ? "PREP" : "");
+    // Each Type fills in its Code: O and T/X start on Default, X has the single Code PREP.
+    setCodeRaw(DEFAULT_CODE[v] || ""); // each Type fills in its Code
     setPt("");
     setCategory([]);
     setLinks({});
@@ -163,8 +161,8 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
     let used = [];
     const errs = {};
     if (!type) errs.type = "This is a required field.";
-    else if (!effCode) errs.code = "This is a required field.";
-    else if (taken(type, effCode)) errs.code = `${type} · ${effCode} already exists.`; // one Mapping each for T/X Default, X PREP, O EVAC, O AL and O AR
+    else if (!code) errs.code = "This is a required field.";
+    else if (taken(type, code)) errs.code = `${type} · ${code} already exists.`; // one Mapping each for T/X Default, X PREP, O EVAC, O AL and O AR
     if (isDefaultO) {
       if (!pt) errs.pt = "This is a required field.";
       else if (!category.length) errs.category = "This is a required field.";
@@ -186,7 +184,7 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
     } else if (isTxDefault) {
       if (!tFam.length) errs["fam:T"] = "This is a required field.";
       used = [...tFam];
-      data = { type, code: effCode, activityType: null, category: null, links: null, families: used };
+      data = { type, code: code, activityType: null, category: null, links: null, families: used };
     } else if (isPrep) {
       if (!xFam.length) errs["fam:X"] = "This is a required field.";
       used = [...xFam];
@@ -268,9 +266,9 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
               ) : null}
               {moved.length ? (
                 <p style={{ margin: draftLine || unmapped.length ? "16px 0 0" : 0 }}>
-                  {m && m.type === type && m.code === effCode
+                  {m && m.type === type && m.code === code
                     ? `Changing this Mapping will also remove ${moved.length === 1 ? "this Product Family" : "these Product Families"} from Schedule, which is set per Activity Type and Category.`
-                    : `Moving ${moved.length === 1 ? "this Product Family" : "these Product Families"} to Type ${type}, Code ${effCode} will also remove ${moved.length === 1 ? "it" : "them"} from Schedule.`}
+                    : `Moving ${moved.length === 1 ? "this Product Family" : "these Product Families"} to Type ${type}, Code ${code} will also remove ${moved.length === 1 ? "it" : "them"} from Schedule.`}
                 </p>
               ) : null}
               <div style={{ marginTop: draftLine || unmapped.length || moved.length ? 16 : 0 }}>
@@ -396,7 +394,8 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
     familySection = <div className="empty form-empty">Select all dropdown options to continue</div>;
   }
   const familyInputShown = !!familySection && !(familySection.props && String(familySection.props.className || "").includes("form-empty"));
-  const categoryOptions = isSys ? category : pt ? CATEGORY_BY_ACTIVITY_TYPE[pt] || [] : [];
+  // Category dropdown options are listed alphabetically.
+  const categoryOptions = [...(isSys ? category : pt ? CATEGORY_BY_ACTIVITY_TYPE[pt] || [] : [])].sort((a, b) => a.localeCompare(b));
   const categoryUsed = (p) => db.mappings.some((mm) => mm.activityType === pt && (mm.category || []).includes(p) && mm.id !== editingId);
   return (
     <>
@@ -421,7 +420,7 @@ export function MappingForm({ editingId, prefill, fromTab, dirtyRef, onDone, onD
                 id="f-code"
                 placeholder="Code"
                 value={code}
-                disabled={!type || type === "T/X"} // T/X has no Code to pick
+                disabled={!type}
                 onChange={changeCode}
                 onClear={() => changeCode("")}
                 error={errors.code}

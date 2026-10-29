@@ -13,6 +13,8 @@ export const SYSTEM_MAPPINGS = {
   AR: { activityType: "AR", category: "TG", products: ["SAVE10", "SAVE12"] },
 };
 export const SYSTEM_CODES = Object.keys(SYSTEM_MAPPINGS);
+// Picking a Type fills in its Code: O and T/X start on Default, X has only PREP.
+export const DEFAULT_CODE = { O: "Default", "T/X": "Default", X: "PREP" };
 export const CODES_BY_TYPE = { O: ["Default", ...SYSTEM_CODES], "T/X": ["Default"], X: ["PREP"] };
 // Year (and Month) column width in the Schedule for All Units tables
 const YEAR_COL_W = 180;
